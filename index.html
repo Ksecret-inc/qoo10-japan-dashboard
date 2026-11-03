@@ -1,0 +1,1073 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>큐텐 매출 대시보드</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+/* 레이아웃: 한 열 — 헤더 / 탭 / 카드 스택. 노션 임베드 폭(약 700px)에서 KPI 4장이 한 줄에 들어가고,
+   400px 폰 폭에서는 2열로 접힌다. 색·간격 토큰은 ksecret-kpi-dashboard 와 같은 계열을 쓴다. */
+:root{
+  --ink:#1B1A2E; --ink-2:#4A4763; --ink-3:#73708A;
+  --ground:#F6F5FA; --surface:#FFFFFF; --surface-2:#FBFAFE;
+  --line:#E3E1EC; --line-2:#CDCADE;
+  --accent:#5B4BC4; --on-accent:#FFFFFF; --accent-soft:#EDEAFB;
+  --good:#2C7A57; --good-bg:#E3F2EA;
+  --warn:#865F0C; --warn-bg:#FBF1D8; --warn-mark:#D9A21B;
+  --crit:#B33C36; --crit-bg:#FBE5E3;
+  --idle:#9A97AD; --track:#ECEAF3;
+  --series-1:#2a78d6; --on-series:#FFFFFF;
+  --chart-grid:#ECEBF2; --chart-axis:#C9C6D8;
+  --shadow:0 1px 2px rgba(27,26,46,.05),0 8px 24px -14px rgba(27,26,46,.16);
+  --shadow-lg:0 18px 44px -16px rgba(27,26,46,.38);
+  --sans:"Pretendard Variable","Pretendard","Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",-apple-system,system-ui,"Segoe UI",sans-serif;
+  --radius:14px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ink:#EFEDF7; --ink-2:#B4B0C8; --ink-3:#8A85A4;
+  --ground:#12111F; --surface:#1C1A2E; --surface-2:#221F38;
+  --line:#322E4D; --line-2:#4E4870;
+  --accent:#A99BF5; --on-accent:#17142B; --accent-soft:#2A2547;
+  --good:#6ED3A3; --good-bg:#1B3A2C;
+  --warn:#E5BA55; --warn-bg:#3A3018; --warn-mark:#E5BA55;
+  --crit:#F09189; --crit-bg:#3D1F1D;
+  --idle:#7C7894; --track:#2A2742;
+  --series-1:#3987e5; --on-series:#FFFFFF;
+  --chart-grid:#2B2840; --chart-axis:#433E62;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px -14px rgba(0,0,0,.6);
+  --shadow-lg:0 18px 44px -16px rgba(0,0,0,.8);
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --ink:#EFEDF7; --ink-2:#B4B0C8; --ink-3:#8A85A4;
+  --ground:#12111F; --surface:#1C1A2E; --surface-2:#221F38;
+  --line:#322E4D; --line-2:#4E4870;
+  --accent:#A99BF5; --on-accent:#17142B; --accent-soft:#2A2547;
+  --good:#6ED3A3; --good-bg:#1B3A2C;
+  --warn:#E5BA55; --warn-bg:#3A3018; --warn-mark:#E5BA55;
+  --crit:#F09189; --crit-bg:#3D1F1D;
+  --idle:#7C7894; --track:#2A2742;
+  --series-1:#3987e5; --on-series:#FFFFFF;
+  --chart-grid:#2B2840; --chart-axis:#433E62;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px -14px rgba(0,0,0,.6);
+  --shadow-lg:0 18px 44px -16px rgba(0,0,0,.8);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:14px/1.5 var(--sans);
+  -webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px))}
+.num{font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3{text-wrap:balance}
+
+/* ---------- 헤더 ---------- */
+.top{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-content:space-between}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+h1{margin:3px 0 4px;font-size:22px;font-weight:800;letter-spacing:-.02em}
+.sub{margin:0;color:var(--ink-2);font-size:12.5px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--idle);flex:none}
+.dot.live{background:var(--good)} .dot.err{background:var(--crit)}
+.dot.busy{background:var(--accent);animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;
+  padding:2px 8px;border-radius:99px;background:var(--track);color:var(--ink-2)}
+.chip.warn{background:var(--warn-bg);color:var(--warn)}
+.chip.crit{background:var(--crit-bg);color:var(--crit)}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+button,.btn{font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;padding:7px 12px;
+  min-height:36px;border-radius:8px;border:1px solid var(--line-2);background:var(--surface);
+  color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;gap:6px;
+  transition:border-color .15s ease,color .15s ease,background-color .15s ease}
+button:hover,.btn:hover{border-color:var(--accent);color:var(--accent)}
+button[disabled]{opacity:.5;cursor:not-allowed}
+
+/* ---------- 탭 ---------- */
+.tabs{display:flex;gap:4px;margin:18px 0 16px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs [role=tab]{border:0;border-radius:0;background:none;min-height:40px;padding:8px 12px;
+  font-size:13.5px;font-weight:700;color:var(--ink-3);border-bottom:2px solid transparent;
+  margin-bottom:-1px;white-space:nowrap}
+.tabs [role=tab][aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
+.tabs [role=tab]:hover{color:var(--ink)}
+
+/* ---------- 공통 카드 ---------- */
+.stack{display:flex;flex-direction:column;gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:16px 18px;min-width:0}
+.chd{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px 12px;margin-bottom:4px}
+.chd h2{margin:0;font-size:14px;font-weight:800;letter-spacing:-.01em}
+.note{margin:2px 0 10px;font-size:12px;color:var(--ink-3)}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:8px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;border-radius:0;min-height:30px;padding:4px 10px;font-size:12px;
+  background:var(--surface);color:var(--ink-2)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed=true]{background:var(--accent-soft);color:var(--accent)}
+.takeaway{margin:0 0 4px;font-size:15px;line-height:1.6;color:var(--ink);max-width:70ch}
+.takeaway b{font-weight:700}
+.sect{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.sect h2{margin:0;font-size:14px;font-weight:800}
+.periodnote{margin:-6px 0 0;font-size:12px;color:var(--ink-3)}
+
+/* ---------- KPI ---------- */
+.kpis{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 15px 12px;
+  box-shadow:var(--shadow);min-width:0}
+.kpi.hero{border-color:var(--accent)}
+.kl{font-size:12px;font-weight:600;color:var(--ink-2)}
+.kv{font-size:26px;font-weight:800;letter-spacing:-.03em;line-height:1.2;margin:4px 0 7px;
+  font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kv small{font-size:14px;font-weight:600;color:var(--ink-2);margin-left:2px}
+.kv .yen{font-size:17px;font-weight:700;color:var(--ink-2);margin-right:1px}
+.kd{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-3)}
+.pill{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:700;white-space:nowrap;
+  padding:1px 7px;border-radius:99px;font-variant-numeric:tabular-nums}
+.pill.up{color:var(--good);background:var(--good-bg)}
+.pill.down{color:var(--crit);background:var(--crit-bg)}
+.pill.flat{color:var(--ink-3);background:var(--track)}
+.kwarn{margin:0;font-size:12px;color:var(--warn);display:flex;gap:6px;align-items:flex-start}
+
+/* ---------- 차트 ---------- */
+.chartbox{position:relative;min-height:240px}
+.chartbox svg{display:block;width:100%;height:auto;overflow:visible}
+.chartbox .grid{stroke:var(--chart-grid);stroke-width:1}
+.chartbox .axis{stroke:var(--chart-axis);stroke-width:1}
+.chartbox .tk{font-size:11px;fill:var(--ink-3);font-variant-numeric:tabular-nums}
+.chartbox .bar{fill:var(--series-1);transition:opacity .12s ease}
+.chartbox .bars.hovering .bar{opacity:.38}
+.chartbox .bars.hovering .bar.on{opacity:1}
+.chartbox .brk{stroke:var(--surface);stroke-width:2.5}
+.chartbox .peak{font-size:11px;font-weight:700;fill:var(--ink-2);font-variant-numeric:tabular-nums}
+.chartbox .zmark{fill:var(--warn-mark)}
+.chartbox .hit{fill:transparent;cursor:crosshair}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-3);margin-top:6px}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:0}
+.legend .sw-bar{width:10px;height:10px;border-radius:2px;background:var(--series-1)}
+.legend .sw-z{background:var(--warn-mark)}
+.tip{position:absolute;z-index:5;pointer-events:none;background:var(--surface);border:1px solid var(--line-2);
+  border-radius:9px;box-shadow:var(--shadow-lg);padding:8px 10px;font-size:12px;min-width:150px}
+.tip .tx{font-weight:700;margin-bottom:4px;color:var(--ink-2)}
+.tip .tr{display:flex;justify-content:space-between;gap:14px;color:var(--ink-3)}
+.tip .tr b{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
+.tip .tw{margin-top:5px;color:var(--warn);font-weight:600;max-width:220px}
+
+/* ---------- 표 ---------- */
+.tw-wrap{overflow-x:auto;margin:0 -4px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-size:11.5px;font-weight:600;color:var(--ink-3);text-align:left;padding:7px 8px;
+  border-bottom:1px solid var(--line-2);white-space:nowrap}
+td{padding:8px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+tfoot td{border-top:1px solid var(--line-2);border-bottom:0;font-weight:700}
+.r{text-align:right}
+td.r,td .num{font-variant-numeric:tabular-nums}
+td.rank{color:var(--ink-3);width:2.2em;font-variant-numeric:tabular-nums}
+.pname{font-weight:600;line-height:1.35}
+.psub{font-size:11px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.bc{display:flex;align-items:center;gap:8px;min-width:150px}
+.bc .bt{flex:1;min-width:36px;height:6px;border-radius:3px;background:var(--track);overflow:hidden}
+.bc .bt i{display:block;height:100%;border-radius:3px;background:var(--series-1)}
+.bc .bv{min-width:84px;text-align:right;font-variant-numeric:tabular-nums}
+.muted{color:var(--ink-3)}
+.toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2);cursor:pointer}
+.toggle input{accent-color:var(--accent);width:15px;height:15px}
+.tcap{font-size:11.5px;color:var(--ink-3);margin-top:8px}
+
+/* ---------- 바코드 결산 ---------- */
+.months{display:flex;gap:6px;flex-wrap:wrap}
+.months button{min-height:32px;padding:4px 12px;border-radius:99px;font-size:12.5px}
+.months button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.stats{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin:12px 0 14px}
+.stat{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.stat .sl{font-size:11.5px;color:var(--ink-3);font-weight:600}
+.stat .sv{font-size:19px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.copyrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.copymsg{font-size:12px;color:var(--good)}
+.copybox{width:100%;min-height:120px;margin-top:8px;font:12px/1.4 ui-monospace,Consolas,monospace;
+  border:1px solid var(--line-2);border-radius:8px;padding:8px;background:var(--surface-2);color:var(--ink)}
+.bcode{font-variant-numeric:tabular-nums;color:var(--ink-2);white-space:nowrap}
+.heat td.h{text-align:right;font-variant-numeric:tabular-nums;border-left:2px solid var(--surface);min-width:58px}
+.heat th.m{text-align:right}
+.heat .nm{max-width:260px}
+#monthTable td:first-child{min-width:7em;white-space:nowrap}
+
+/* ---------- 점검 ---------- */
+.checks{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.checks li{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5}
+.checks .ic{flex:none;margin-top:5px;width:8px;height:8px;border-radius:50%}
+.checks .ic.warn{background:var(--warn-mark)} .checks .ic.ok{background:var(--good)} .checks .ic.crit{background:var(--crit)}
+.checks .why{color:var(--ink-3);font-size:12px}
+
+/* ---------- 상태 ---------- */
+.errorbox{background:var(--crit-bg);color:var(--crit);border-radius:12px;padding:14px 16px;margin-bottom:16px;font-size:13.5px;line-height:1.55}
+.errorbox b{display:block;margin-bottom:2px}
+.errorbox .why{color:var(--ink-2);font-size:12.5px}
+.sk{display:block;border-radius:6px;background:var(--track);min-height:14px}
+@media (prefers-reduced-motion:no-preference){
+  .sk{background:linear-gradient(90deg,var(--track) 0%,var(--surface-2) 50%,var(--track) 100%);
+    background-size:200% 100%;animation:shimmer 1.3s linear infinite}
+  @keyframes shimmer{to{background-position:-200% 0}}
+}
+footer{margin-top:22px;font-size:11.5px;color:var(--ink-3);line-height:1.6}
+footer a{color:inherit}
+
+@media (max-width:560px){
+  h1{font-size:19px}
+  .kv{font-size:22px}
+  .hide-sm{display:none}
+  .bc{min-width:0} .bc .bt{display:none} .bc .bv{min-width:0}
+  th,td{padding-left:6px;padding-right:6px}
+  #monthTable td:first-child{min-width:5.5em;white-space:normal}
+  .card{padding:14px 14px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">일본 사업팀 · Qoo10 Japan</div>
+      <h1>큐텐 매출 대시보드</h1>
+      <p class="sub"><span class="dot busy" id="dot"></span><span id="asof">시트를 불러오는 중…</span><span id="stale" class="chip warn" hidden></span></p>
+    </div>
+    <div class="actions">
+      <a class="btn" id="sheetLink" target="_blank" rel="noopener">원본 시트 ↗</a>
+      <button id="reloadBtn" type="button">새로고침</button>
+      <button id="themeBtn" type="button" aria-label="밝은/어두운 화면 전환" title="밝은/어두운 화면 전환"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="보기">
+    <button role="tab" type="button" id="tab-summary" aria-controls="summary" aria-selected="true">요약</button>
+    <button role="tab" type="button" id="tab-products" aria-controls="products" aria-selected="false">상품별 판매</button>
+    <button role="tab" type="button" id="tab-barcode" aria-controls="barcode" aria-selected="false">바코드 결산</button>
+  </nav>
+
+  <div id="errorBox" class="errorbox" role="alert" hidden></div>
+
+  <!-- ================= 요약 ================= -->
+  <section id="summary" role="tabpanel" aria-labelledby="tab-summary" class="stack">
+    <p class="takeaway" id="takeaway"><span class="sk" style="width:80%"></span></p>
+
+    <div class="sect">
+      <h2>핵심 지표</h2>
+      <div class="seg" id="kpiSeg" role="group" aria-label="기간">
+        <button type="button" data-v="mtd" aria-pressed="true">이번 달</button>
+        <button type="button" data-v="d7" aria-pressed="false">최근 7일</button>
+        <button type="button" data-v="d30" aria-pressed="false">최근 30일</button>
+      </div>
+    </div>
+    <p class="periodnote" id="kpiPeriod"></p>
+    <div class="kpis" id="kpis">
+      <div class="kpi"><span class="sk" style="height:58px"></span></div>
+      <div class="kpi"><span class="sk" style="height:58px"></span></div>
+      <div class="kpi"><span class="sk" style="height:58px"></span></div>
+      <div class="kpi"><span class="sk" style="height:58px"></span></div>
+    </div>
+    <p class="kwarn" id="kpiWarn" hidden></p>
+
+    <div class="card" id="dailyCard">
+      <div class="chd">
+        <h2>일별 매출</h2>
+        <div class="seg" id="rangeSeg" role="group" aria-label="표시 기간">
+          <button type="button" data-v="30" aria-pressed="false">30일</button>
+          <button type="button" data-v="90" aria-pressed="true">90일</button>
+          <button type="button" data-v="all" aria-pressed="false">전체</button>
+        </div>
+      </div>
+      <p class="note" id="dailyNote">주문일(일본 시간) 기준 결제금액. 막대에 마우스를 올리면 주문·수량·정산예정이 보입니다.</p>
+      <div class="chartbox" id="dailyChart" role="img" aria-label="일별 매출 막대 차트"><span class="sk" style="height:220px"></span></div>
+      <div class="legend" id="dailyLegend">
+        <span><i class="sw-bar"></i>매출(엔)</span>
+        <span><i class="sw-z"></i>0엔 주문 포함 추정일</span>
+        <span id="clipLegend" hidden>// 꺾인 막대는 눈금을 넘는 값 — 위 숫자가 실제 값</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="chd"><h2>월별 실적</h2></div>
+      <p class="note">진행 중인 달의 전월 대비는 같은 날짜 구간끼리 비교합니다.</p>
+      <div class="tw-wrap">
+        <table id="monthTable">
+          <thead><tr>
+            <th>월</th><th class="r">매출(엔)</th><th class="r hide-sm">정산예정(엔)</th>
+            <th class="r">주문</th><th class="r hide-sm">수량</th><th class="r">객단가</th><th class="r">전월 대비</th>
+          </tr></thead>
+          <tbody><tr><td colspan="7"><span class="sk"></span></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="chd"><h2>데이터 점검</h2></div>
+      <p class="note">시트가 자동 집계될 때 확인이 필요한 항목을 표시합니다.</p>
+      <ul class="checks" id="checks"><li><span class="sk" style="width:60%"></span></li></ul>
+    </div>
+  </section>
+
+  <!-- ================= 상품별 ================= -->
+  <section id="products" role="tabpanel" aria-labelledby="tab-products" class="stack" hidden>
+    <div class="card">
+      <div class="chd">
+        <h2>상품별 판매</h2>
+        <div class="seg" id="skuSeg" role="group" aria-label="기간">
+          <button type="button" data-v="y" aria-pressed="false">어제</button>
+          <button type="button" data-v="7" aria-pressed="false">최근 7일</button>
+          <button type="button" data-v="30" aria-pressed="true">최근 30일</button>
+          <button type="button" data-v="m" aria-pressed="false">이번 달</button>
+          <button type="button" data-v="all" aria-pressed="false">전체</button>
+        </div>
+      </div>
+      <p class="note" id="skuNote">큐텐 판매 상품(세트는 세트 단위) 기준입니다. 낱개 바코드 기준은 ‘바코드 결산’ 탭을 보세요.</p>
+      <div class="tw-wrap">
+        <table id="skuTable">
+          <thead><tr><th>#</th><th>상품</th><th class="r">수량</th><th class="r">매출(엔)</th><th class="r">비중</th></tr></thead>
+          <tbody><tr><td colspan="5"><span class="sk"></span></td></tr></tbody>
+          <tfoot></tfoot>
+        </table>
+      </div>
+      <div class="tcap" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <span id="skuCap"></span>
+        <label class="toggle"><input type="checkbox" id="skuZero"> 판매 없는 상품도 보기</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 바코드 결산 ================= -->
+  <section id="barcode" role="tabpanel" aria-labelledby="tab-barcode" class="stack" hidden>
+    <div class="card">
+      <div class="chd">
+        <h2>바코드 월 결산</h2>
+        <div class="months" id="bcMonths" role="group" aria-label="결산 월"></div>
+      </div>
+      <p class="note">세트 상품은 [상품명매핑] 시트의 바코드 구성대로 낱개로 나눠 셉니다. 바코드별 금액은 낱개 수량 비율로 나눈 참고값이고, 매출 합계는 그날 실제 결제금액(Total R)의 합입니다.</p>
+      <div class="stats" id="bcStats"></div>
+      <p class="kwarn" id="bcWarn" hidden></p>
+      <div class="tw-wrap">
+        <table id="bcTable">
+          <thead><tr><th>바코드</th><th>상품명</th><th class="r">수량</th><th class="r">금액(엔, 참고)</th><th class="r hide-sm">비중</th></tr></thead>
+          <tbody><tr><td colspan="5"><span class="sk"></span></td></tr></tbody>
+          <tfoot></tfoot>
+        </table>
+      </div>
+      <div class="copyrow" style="margin-top:12px">
+        <button type="button" id="copyRaw">결산용 A~G열 복사</button>
+        <button type="button" id="copySum">바코드별 합계 복사</button>
+        <span class="copymsg" id="copyMsg" role="status"></span>
+      </div>
+      <textarea class="copybox" id="copyBox" readonly hidden aria-label="복사할 내용"></textarea>
+    </div>
+
+    <div class="card">
+      <div class="chd"><h2>바코드별 월간 수량</h2></div>
+      <p class="note">색이 진할수록 그 달 출고 수량이 많습니다. ⚠ 표시 달은 0엔 주문(무상 출고)이 섞여 있습니다.</p>
+      <div class="tw-wrap">
+        <table class="heat" id="heatTable"><thead></thead><tbody><tr><td><span class="sk"></span></td></tr></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    데이터: Google Sheets ‘큐텐 매출 자동집계’의 일별매출·SKU별판매·바코드결산 탭. 시트는 매일 아침 자동 갱신되고, 이 화면은 열 때마다(그리고 열어 둔 동안 1시간마다) 시트를 새로 읽습니다.
+  </footer>
+</div>
+
+<script>
+"use strict";
+/* =====================================================================
+   설정
+   ===================================================================== */
+const SHEET_ID = "14iKhibCEHuTzXqyCZXD0rYwbZVfj3MM_a6z2d8eeO70";
+const SOURCES = {           // [탭 이름, 범위, 머리글 행 수]
+  daily:   ["일별매출",   "A1:G3000", 1],
+  barcode: ["바코드결산", "A1:I30000", 1],
+  sku:     ["SKU별판매",  "A1:L1000", 1],
+  head:    ["대시보드",   "A1:A2", 0],
+};
+const ZERO_YEN_AOV = 500;        // 객단가가 이 금액(엔) 미만이면서
+const ZERO_YEN_MIN_ORDERS = 50;  // 주문이 이 건수 이상인 날 = 0엔 주문 포함 추정일
+const STALE_HOURS = 36;          // 시트 갱신이 이 시간 넘게 지나면 경고
+const AUTO_RELOAD_MIN = 60;
+
+/* =====================================================================
+   도우미
+   ===================================================================== */
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const SVGNS = "http://www.w3.org/2000/svg";
+function h(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v == null || v === false) continue;
+    if (k === "class") el.className = v;
+    else if (k === "style") el.style.cssText = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of kids.flat()) { if (c == null || c === false) continue; el.append(c instanceof Node ? c : String(c)); }
+  return el;
+}
+function s(tag, attrs, text) {
+  const el = document.createElementNS(SVGNS, tag);
+  for (const [k, v] of Object.entries(attrs || {})) if (v != null) el.setAttribute(k, v);
+  if (text != null) el.textContent = text;
+  return el;
+}
+const pad = (n) => String(n).padStart(2, "0");
+const key = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
+const dOf = (k) => new Date(k + "T00:00:00Z");
+const kOf = (d) => d.toISOString().slice(0, 10);
+const addDays = (k, n) => { const d = dOf(k); d.setUTCDate(d.getUTCDate() + n); return kOf(d); };
+const daysInMonth = (y, m) => new Date(Date.UTC(y, m, 0)).getUTCDate();
+const WD = "일월화수목금토";
+const md = (k) => `${+k.slice(5, 7)}/${+k.slice(8, 10)}`;
+const fmtRange = ([a, b]) => a === b ? md(a) : `${md(a)}–${md(b)}`;
+function fmtRangeK([a, b]) {
+  const am = +a.slice(5, 7), ad = +a.slice(8, 10), bm = +b.slice(5, 7), bd = +b.slice(8, 10);
+  if (a === b) return `${am}월 ${ad}일`;
+  return am === bm ? `${am}월 ${ad}–${bd}일` : `${am}월 ${ad}일–${bm}월 ${bd}일`;
+}
+const longDay = (k) => `${+k.slice(5, 7)}월 ${+k.slice(8, 10)}일 (${WD[dOf(k).getUTCDay()]})`;
+const monthName = (ym, withYear) => (withYear ? `${ym.slice(0, 4)}년 ` : "") + `${+ym.slice(5, 7)}월`;
+
+const nf = new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 0 });
+const nf1 = new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 1 });
+const int = (n) => nf.format(Math.round(n || 0));
+const qty = (n) => nf1.format(n || 0);
+const yen = (n) => "¥" + int(n);
+const pct = (x) => (x * 100).toFixed(1) + "%";
+function yenShort(v) {
+  if (!v) return "0";
+  if (v >= 1e4) { const m = v / 1e4; return "¥" + (m < 10 && !Number.isInteger(m) ? m.toFixed(1) : nf.format(Math.round(m))) + "만"; }
+  return "¥" + int(v);
+}
+function num(x) {
+  if (x == null) return 0;
+  const t = String(x).replace(/[−–]/g, "-").replace(/[^0-9.\-eE+]/g, "");
+  const v = parseFloat(t);
+  return Number.isFinite(v) ? v : 0;
+}
+function toDay(x) {
+  const t = String(x || "").trim(); let m;
+  if ((m = t.match(/^(\d{4})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})/))) return key(+m[1], +m[2], +m[3]);
+  if ((m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/))) return key(+m[3], +m[1], +m[2]);
+  return null;
+}
+function cleanBarcode(x) {
+  let t = String(x || "").trim().replace(/[,\s]/g, "");
+  if (/^\d+(\.\d+)?e\+?\d+$/i.test(t)) t = String(Math.round(Number(t)));
+  t = t.replace(/\.0+$/, "");
+  return t;
+}
+const _cv = document.createElement("canvas").getContext("2d");
+function textW(t, px = 11, weight = 400) {
+  _cv.font = `${weight} ${px}px ${getComputedStyle(document.body).fontFamily}`;
+  return _cv.measureText(t).width;
+}
+
+/* =====================================================================
+   시트 읽기 (gviz CSV — 시트가 '링크가 있는 모든 사용자 · 뷰어'여야 함)
+   ===================================================================== */
+class SheetError extends Error {
+  constructor(kind, tab, detail) { super(kind); this.kind = kind; this.tab = tab; this.detail = detail; }
+}
+const gviz = (tab, range, headers) =>
+  `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=${headers}` +
+  `&sheet=${encodeURIComponent(tab)}&range=${range}&_=${Date.now()}`;
+async function fetchSource(name) {
+  const [tab, range, headers] = SOURCES[name];
+  let r;
+  try { r = await fetch(gviz(tab, range, headers), { cache: "no-store" }); }
+  catch (e) { throw new SheetError("access", tab); }
+  if (!r.ok) throw new SheetError("http", tab, r.status);
+  const text = await r.text();
+  if (/^\s*</.test(text)) throw new SheetError("access", tab);
+  return parseCsv(text);
+}
+function parseCsv(t) {
+  const rows = []; let row = [], f = "", q = false;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (q) { if (c === '"') { if (t[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ",") { row.push(f); f = ""; }
+    else if (c === "\n") { row.push(f); rows.push(row); row = []; f = ""; }
+    else if (c !== "\r") f += c;
+  }
+  if (f !== "" || row.length) { row.push(f); rows.push(row); }
+  return rows;
+}
+// 머리글 이름으로 열을 찾는다 → 시트 열 순서가 바뀌어도 동작
+function byHeader(rows, spec, tab) {
+  if (!rows.length) throw new SheetError("empty", tab);
+  const head = rows[0].map((x) => String(x).trim());
+  const idx = {};
+  for (const [k, names] of Object.entries(spec)) {
+    let i = head.findIndex((x) => names.includes(x));
+    if (i < 0) i = head.findIndex((x) => names.some((n) => x.startsWith(n)));
+    if (i < 0) throw new SheetError("columns", tab, names[0]);
+    idx[k] = i;
+  }
+  return rows.slice(1).map((r) => {
+    const o = {}; for (const [k, i] of Object.entries(idx)) o[k] = r[i] ?? ""; return o;
+  });
+}
+const SPEC = {
+  daily: { date: ["날짜"], rev: ["매출(엔)", "매출"], orders: ["주문건수"], qty: ["판매수량"], settle: ["정산예정(엔)", "정산예정"] },
+  barcode: { y: ["Y"], m: ["M"], d: ["D"], co: ["Company"], bc: ["Barcode"], q: ["Q"], tr: ["Total R"],
+             amt: ["바코드별 금액(엔, 참고)", "바코드별 금액"], name: ["상품명(참고)", "상품명"] },
+  sku: { name: ["상품명"], code: ["상품코드"],
+         qy: ["어제 수량"], q7: ["최근 7일 수량"], q30: ["최근 30일 수량"], qm: ["이번 달 수량"], qall: ["전체 수량"],
+         ry: ["어제 매출"], r7: ["최근 7일 매출"], r30: ["최근 30일 매출"], rm: ["이번 달 매출"], rall: ["전체 매출"] },
+};
+
+/* =====================================================================
+   상태
+   ===================================================================== */
+const S = {
+  ok: { daily: false, barcode: false, sku: false },
+  errors: {},
+  days: [], asOf: null, first: null, updated: null,
+  bc: [], sku: [],
+  kpi: "mtd", range: "90", skuP: "30", skuZero: false, bcMonth: null,
+};
+function zeroYen(d) { return d.orders >= ZERO_YEN_MIN_ORDERS && d.rev / d.orders < ZERO_YEN_AOV; }
+
+function buildDaily(rows, headRows) {
+  const by = new Map();
+  for (const r of byHeader(rows, SPEC.daily, "일별매출")) {
+    const day = toDay(r.date); if (!day) continue;
+    const o = by.get(day) || { day, rev: 0, orders: 0, qty: 0, settle: 0 };
+    o.rev += num(r.rev); o.orders += num(r.orders); o.qty += num(r.qty); o.settle += num(r.settle);
+    by.set(day, o);
+  }
+  const keys = [...by.keys()].sort();
+  if (!keys.length) throw new SheetError("empty", "일별매출");
+  const headText = (headRows || []).flat().join(" ");
+  const am = headText.match(/기준[:\s]*(\d{4})-(\d{1,2})-(\d{1,2})/);
+  let asOf = am ? key(+am[1], +am[2], +am[3]) : keys[keys.length - 1];
+  if (keys[keys.length - 1] > asOf) asOf = keys[keys.length - 1];
+  const um = headText.match(/갱신\s*(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):(\d{2})/);
+  S.updated = um ? new Date(`${um[1]}T${pad(um[2])}:${um[3]}:00+09:00`) : null;
+  S.asOf = asOf; S.first = keys[0];
+  const days = [];
+  for (let k = keys[0]; k <= asOf; k = addDays(k, 1)) days.push(by.get(k) || { day: k, rev: 0, orders: 0, qty: 0, settle: 0 });
+  days.forEach((d) => { d.z = zeroYen(d); });
+  S.days = days;
+}
+function buildBarcode(rows) {
+  S.bc = byHeader(rows, SPEC.barcode, "바코드결산").map((r) => {
+    const y = num(r.y), m = num(r.m), d = num(r.d);
+    const raw = String(r.bc || "").trim(), bc = cleanBarcode(raw);
+    const valid = /^\d{8,14}$/.test(bc);
+    const name = String(r.name || "").trim();
+    return { y, m, d, ym: `${y}-${pad(m)}`, day: key(y, m, d), co: String(r.co || "").trim(),
+             raw, bc, valid, k: valid ? bc : "n:" + name, q: num(r.q),
+             trRaw: String(r.tr || "").trim(), tr: num(r.tr), amt: num(r.amt), name };
+  }).filter((r) => r.y > 2000 && r.m >= 1 && r.m <= 12 && r.d >= 1);
+}
+function buildSku(rows) {
+  S.sku = byHeader(rows, SPEC.sku, "SKU별판매").map((r) => ({
+    name: String(r.name || "").trim(), code: String(r.code || "").trim(),
+    q: { y: num(r.qy), 7: num(r.q7), 30: num(r.q30), m: num(r.qm), all: num(r.qall) },
+    r: { y: num(r.ry), 7: num(r.r7), 30: num(r.r30), m: num(r.rm), all: num(r.rall) },
+  })).filter((r) => r.name);
+}
+
+/* ---------- 기간 집계 ---------- */
+function sumRange(a, b) {
+  const o = { rev: 0, orders: 0, qty: 0, settle: 0, z: [] };
+  for (const d of S.days) if (d.day >= a && d.day <= b) {
+    o.rev += d.rev; o.orders += d.orders; o.qty += d.qty; o.settle += d.settle; if (d.z) o.z.push(d.day);
+  }
+  o.aov = o.orders ? o.rev / o.orders : 0;
+  o.partial = a < S.first;
+  return o;
+}
+function periods() {
+  const k = S.asOf, [y, m, d] = k.split("-").map(Number);
+  const py = m === 1 ? y - 1 : y, pm = m === 1 ? 12 : m - 1;
+  return {
+    mtd: { label: `${m}월`, cur: [key(y, m, 1), k], prev: [key(py, pm, 1), key(py, pm, Math.min(d, daysInMonth(py, pm)))], prevLabel: "전월 동기간" },
+    d7: { label: "최근 7일", cur: [addDays(k, -6), k], prev: [addDays(k, -13), addDays(k, -7)], prevLabel: "이전 7일" },
+    d30: { label: "최근 30일", cur: [addDays(k, -29), k], prev: [addDays(k, -59), addDays(k, -30)], prevLabel: "이전 30일" },
+  };
+}
+function monthsOfDays() {
+  const out = [];
+  for (const d of S.days) { const ym = d.day.slice(0, 7); if (!out.includes(ym)) out.push(ym); }
+  return out;
+}
+function monthSum(ym, uptoDay) {
+  const [y, m] = ym.split("-").map(Number);
+  const end = uptoDay ? key(y, m, Math.min(uptoDay, daysInMonth(y, m))) : key(y, m, daysInMonth(y, m));
+  return sumRange(key(y, m, 1), end);
+}
+const prevYm = (ym) => { const [y, m] = ym.split("-").map(Number); return m === 1 ? `${y - 1}-12` : `${y}-${pad(m - 1)}`; };
+
+/* =====================================================================
+   렌더링 — 헤더 · 상태
+   ===================================================================== */
+function setDot(state) { $("#dot").className = "dot " + state; }
+function renderHeader() {
+  $("#sheetLink").href = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`;
+  if (!S.asOf) return;
+  const parts = [`${S.asOf.replace(/-/g, ".")}까지 (주문일·일본 시간)`];
+  if (S.updated) {
+    const j = new Date(S.updated.getTime() + 9 * 3600e3);   // 시트 시간대(UTC+9) 그대로 표시
+    parts.push(`시트 갱신 ${md(kOf(j))} ${pad(j.getUTCHours())}:${pad(j.getUTCMinutes())}`);
+  }
+  $("#asof").textContent = parts.join(" · ");
+  const st = $("#stale");
+  if (S.updated) {
+    const hrs = (Date.now() - S.updated.getTime()) / 3600e3;
+    st.hidden = !(hrs > STALE_HOURS);
+    st.textContent = `시트 갱신 ${Math.floor(hrs)}시간 전 — 자동 집계 확인 필요`;
+  } else st.hidden = true;
+}
+function showErrors() {
+  const box = $("#errorBox");
+  const list = Object.values(S.errors);
+  if (!list.length) { box.hidden = true; box.replaceChildren(); return; }
+  box.hidden = false;
+  const access = list.find((e) => e.kind === "access");
+  if (access) {
+    box.replaceChildren(
+      h("b", null, "시트를 읽지 못했습니다."),
+      "구글 시트 ‘큐텐 매출 자동집계’의 공유 설정이 ‘링크가 있는 모든 사용자 · 뷰어’여야 이 화면이 데이터를 읽을 수 있어요. ",
+      h("span", { class: "why" }, "공유 설정을 바꾼 뒤 새로고침을 누르세요."));
+    return;
+  }
+  box.replaceChildren(h("b", null, "일부 데이터를 읽지 못했습니다."),
+    ...list.map((e) => h("div", { class: "why" },
+      e.kind === "columns" ? `‘${e.tab}’ 탭에서 ‘${e.detail}’ 열을 찾지 못했습니다. 탭 이름이나 머리글이 바뀌었는지 확인하세요.`
+      : e.kind === "empty" ? `‘${e.tab}’ 탭에 데이터가 없습니다.`
+      : e.kind === "http" ? `‘${e.tab}’ 탭 응답 오류 (HTTP ${e.detail}).`
+      : `‘${e.tab}’ 탭을 처리하다 오류가 났습니다: ${e.message}`)));
+}
+
+/* =====================================================================
+   요약 탭
+   ===================================================================== */
+function renderTakeaway() {
+  const el = $("#takeaway");
+  if (!S.ok.daily) { el.replaceChildren(); return; }
+  const P = periods().mtd, cur = sumRange(...P.cur), prev = sumRange(...P.prev);
+  const kids = [`${fmtRangeK(P.cur)} 매출은 `, h("b", null, yen(cur.rev))];
+  if (prev.rev > 0 && !prev.partial) {
+    const d = (cur.rev - prev.rev) / prev.rev;
+    kids.push(`으로 전월 같은 기간(${yen(prev.rev)})보다 `, h("b", null, pct(Math.abs(d))), d >= 0 ? " 많습니다." : " 적습니다.");
+  } else kids.push("입니다.");
+  // 지난달 매출이 특정일에 몰렸는지
+  const pm = prevYm(S.asOf.slice(0, 7));
+  const lm = S.days.filter((d) => d.day.startsWith(pm));
+  const lmTot = lm.reduce((a, d) => a + d.rev, 0);
+  if (lmTot > 0) {
+    const peak = lm.reduce((a, d) => (d.rev > a.rev ? d : a));
+    const share = peak.rev / lmTot;
+    if (share >= 0.3) kids.push(` 지난달(${monthName(pm)}) 매출 ${yen(lmTot)} 중 `, h("b", null, pct(share)), `가 ${longDay(peak.day).replace(/ \(.\)$/, "")} 하루에 나왔습니다.`);
+  }
+  el.replaceChildren(...kids);
+}
+
+const METRICS = [
+  { k: "rev", label: "매출", big: (v) => [h("span", { class: "yen" }, "¥"), int(v)], fmt: yen },
+  { k: "orders", label: "주문건수", big: (v) => [int(v), h("small", null, "건")], fmt: (v) => int(v) + "건" },
+  { k: "qty", label: "판매수량", big: (v) => [int(v), h("small", null, "개")], fmt: (v) => int(v) + "개" },
+  { k: "aov", label: "객단가", big: (v) => [h("span", { class: "yen" }, "¥"), int(v)], fmt: yen },
+];
+function deltaPill(c, p, prevLabel) {
+  if (!p && !c) return h("span", { class: "pill flat" }, "—");
+  if (!p) return h("span", { class: "pill up" }, "신규");
+  const d = (c - p) / p, cls = Math.abs(d) < 0.005 ? "flat" : d > 0 ? "up" : "down";
+  const word = cls === "flat" ? "변화 없음" : d > 0 ? "증가" : "감소";
+  return h("span", { class: "pill " + cls, title: `${prevLabel} 대비 ${word}` },
+    `${cls === "up" ? "▲" : cls === "down" ? "▼" : "■"} ${pct(Math.abs(d))}`);
+}
+function renderKpis() {
+  const box = $("#kpis");
+  if (!S.ok.daily) { box.replaceChildren(); $("#kpiPeriod").textContent = ""; return; }
+  const P = periods()[S.kpi], cur = sumRange(...P.cur), prev = sumRange(...P.prev);
+  $("#kpiPeriod").textContent = `${fmtRangeK(P.cur)}  vs  ${P.prevLabel} ${fmtRangeK(P.prev)}` +
+    (prev.partial ? " (비교 기간 일부는 데이터 시작 전)" : "");
+  box.replaceChildren(...METRICS.map((M) => h("div", { class: "kpi" + (M.k === "rev" ? " hero" : "") },
+    h("div", { class: "kl" }, M.label),
+    h("div", { class: "kv" }, ...M.big(cur[M.k])),
+    h("div", { class: "kd" }, deltaPill(cur[M.k], prev[M.k], P.prevLabel), h("span", null, `${P.prevLabel} ${M.fmt(prev[M.k])}`)))));
+  const z = [...prev.z, ...cur.z];
+  const w = $("#kpiWarn");
+  w.hidden = !z.length;
+  w.replaceChildren("⚠ ", `${z.map(md).join(", ")}에 0엔 주문이 많이 섞여 있어 이 기간의 주문건수·객단가 비교는 왜곡돼 있습니다.`);
+}
+
+function niceStep(raw) {
+  const p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+}
+function barPath(x, y0, w, hgt, r) {
+  r = Math.min(r, w / 2, hgt);
+  const t = y0 - hgt;
+  return `M${x},${y0}V${t + r}Q${x},${t} ${x + r},${t}H${x + w - r}Q${x + w},${t} ${x + w},${t + r}V${y0}Z`;
+}
+function drawDaily() {
+  const box = $("#dailyChart");
+  if (!S.ok.daily || box.clientWidth === 0) return;
+  const W = Math.max(280, Math.round(box.clientWidth)), H = 240;
+  const n = S.range === "all" ? S.days.length : Math.min(S.days.length, +S.range);
+  const data = S.days.slice(-n);
+  const sorted = data.map((d) => d.rev).sort((a, b) => b - a);
+  let cap = sorted[0] || 1, clipped = false;
+  if (sorted.length > 3 && sorted[1] > 0 && sorted[0] > sorted[1] * 2.5) { cap = sorted[1] * 1.15; clipped = true; }
+  const step = niceStep(cap / 4), yMax = Math.ceil(cap / step) * step;
+  const ticks = []; for (let v = 0; v <= yMax + 1e-9; v += step) ticks.push(v);
+  const lw = Math.max(...ticks.map((v) => textW(yenShort(v))));
+  const m = { l: Math.ceil(lw) + 10, r: 6, t: clipped ? 22 : 10, b: 36 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b, base = m.t + ih;
+  const bandW = iw / data.length, gap = bandW > 5 ? 2 : bandW > 2.5 ? 1 : 0, bw = Math.max(1, bandW - gap);
+  const yv = (v) => (Math.min(v, yMax) / yMax) * ih;
+
+  const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", "aria-hidden": "true" });
+  for (const v of ticks) {
+    const y = base - yv(v);
+    svg.append(s("line", { class: v === 0 ? "axis" : "grid", x1: m.l, x2: W - m.r, y1: y + 0.5, y2: y + 0.5 }));
+    svg.append(s("text", { class: "tk", x: m.l - 8, y: y + 4, "text-anchor": "end" }, yenShort(v)));
+  }
+  // x 눈금: 45일 이하면 7일 간격(마지막 날 기준), 그 이상은 매월 1일·15일
+  const want = [];
+  data.forEach((d, i) => {
+    const dd = +d.day.slice(8, 10);
+    if (n <= 45 ? (data.length - 1 - i) % 7 === 0 : dd === 1 || dd === 15) want.push(i);
+  });
+  let lastX = -1e9;
+  const tickG = s("g");
+  for (const i of want) {
+    const cx = m.l + i * bandW + bandW / 2, label = md(data[i].day), tw = textW(label);
+    if (cx - tw / 2 < lastX + 8 || cx + tw / 2 > W) continue;
+    tickG.append(s("line", { class: "axis", x1: cx, x2: cx, y1: base, y2: base + 4 }));
+    tickG.append(s("text", { class: "tk", x: cx, y: base + 28, "text-anchor": "middle" }, label));
+    lastX = cx + tw / 2;
+  }
+  svg.append(tickG);
+
+  const bars = s("g", { class: "bars" });
+  const barEls = [];
+  data.forEach((d, i) => {
+    const x = m.l + i * bandW + gap / 2, hh = yv(d.rev);
+    let el = null;
+    if (hh > 0) {
+      el = s("path", { class: "bar", d: barPath(x, base, bw, Math.max(hh, 1), 4) });
+      bars.append(el);
+      if (d.rev > yMax) {
+        const yb = m.t + 9;
+        bars.append(s("line", { class: "brk", x1: x - 2, x2: x + bw + 2, y1: yb + 3, y2: yb - 3 }));
+        bars.append(s("line", { class: "brk", x1: x - 2, x2: x + bw + 2, y1: yb + 8, y2: yb + 2 }));
+        const label = yenShort(d.rev), tw = textW(label, 11, 700), cx = x + bw / 2;
+        const anchor = cx - tw / 2 < m.l ? "start" : cx + tw / 2 > W ? "end" : "middle";
+        bars.append(s("text", { class: "peak", x: anchor === "start" ? x : anchor === "end" ? x + bw : cx, y: m.t - 7, "text-anchor": anchor }, label));
+      }
+    }
+    if (d.z) bars.append(s("circle", { class: "zmark", cx: x + bw / 2, cy: base + 10, r: Math.min(3.5, Math.max(2.5, bw / 2)) }));
+    barEls.push(el);
+  });
+  svg.append(bars);
+
+  const tip = h("div", { class: "tip", hidden: true });
+  const hits = s("g");
+  data.forEach((d, i) => {
+    const r = s("rect", { class: "hit", x: m.l + i * bandW, y: m.t, width: bandW, height: ih + 16 });
+    const show = () => {
+      bars.classList.add("hovering");
+      barEls.forEach((b, j) => b && b.classList.toggle("on", j === i));
+      tip.replaceChildren(
+        h("div", { class: "tx" }, longDay(d.day)),
+        ...[["매출", yen(d.rev)], ["주문", int(d.orders) + "건"], ["수량", int(d.qty) + "개"],
+            ["객단가", d.orders ? yen(d.rev / d.orders) : "—"], ["정산예정", yen(d.settle)]]
+          .map(([a, b]) => h("div", { class: "tr" }, h("span", null, a), h("b", null, b))),
+        ...(d.z ? [h("div", { class: "tw" }, "0엔 주문이 많이 섞인 날 — 주문건수·객단가가 실제 유료 주문과 다릅니다.")] : []));
+      tip.hidden = false;
+      const scale = box.clientWidth / W;
+      const cx = (m.l + i * bandW + bandW / 2) * scale;
+      const tw = tip.offsetWidth, bwid = box.clientWidth;
+      let left = cx + 12; if (left + tw > bwid) left = cx - tw - 12; if (left < 0) left = Math.max(0, bwid - tw);
+      tip.style.left = left + "px"; tip.style.top = "6px";
+    };
+    r.addEventListener("pointerenter", show);
+    r.addEventListener("pointerdown", show);
+    hits.append(r);
+  });
+  hits.addEventListener("pointerleave", () => { bars.classList.remove("hovering"); tip.hidden = true; });
+  svg.append(hits);
+
+  box.setAttribute("aria-label", `일별 매출 막대 차트, ${fmtRange([data[0].day, data[data.length - 1].day])}, 최고 ${longDay(data.reduce((a, d) => d.rev > a.rev ? d : a).day)} ${yen(sorted[0])}`);
+  box.replaceChildren(svg, tip);
+  $("#clipLegend").hidden = !clipped;
+}
+
+function renderMonths() {
+  const tb = $("#monthTable tbody");
+  if (!S.ok.daily) { tb.replaceChildren(); return; }
+  const months = monthsOfDays().reverse();
+  const asM = S.asOf.slice(0, 7), asD = +S.asOf.slice(8, 10);
+  const rows = months.map((ym) => {
+    const [y, mo] = ym.split("-").map(Number);
+    const partial = ym === asM && asD < daysInMonth(y, mo);
+    const startsLate = ym === S.first.slice(0, 7) && S.first.slice(8) !== "01";
+    const cur = partial ? monthSum(ym, asD) : monthSum(ym);
+    const pYm = prevYm(ym), hasPrev = pYm >= S.first.slice(0, 7) && !(pYm === S.first.slice(0, 7) && S.first.slice(8) !== "01");
+    const prev = hasPrev ? (partial ? monthSum(pYm, asD) : monthSum(pYm)) : null;
+    return { ym, partial, startsLate, cur, prev };
+  });
+  const max = Math.max(1, ...rows.map((r) => r.cur.rev));
+  tb.replaceChildren(...rows.map((r) => h("tr", null,
+    h("td", null, h("div", { class: "pname" }, monthName(r.ym, months.some((x) => x.slice(0, 4) !== r.ym.slice(0, 4)))),
+      r.partial ? h("div", { class: "psub" }, `진행 중 · 1–${asD}일`) : null,
+      r.startsLate ? h("div", { class: "psub" }, `${+S.first.slice(8)}일부터 집계`) : null,
+      r.cur.z.length ? h("div", { class: "psub", style: "color:var(--warn)" }, `⚠ 0엔 주문일 ${r.cur.z.map(md).join(", ")}`) : null),
+    h("td", { class: "r" }, h("div", { class: "bc" }, h("span", { class: "bt" }, h("i", { style: `width:${(r.cur.rev / max) * 100}%` })), h("span", { class: "bv" }, int(r.cur.rev)))),
+    h("td", { class: "r hide-sm" }, int(r.cur.settle)),
+    h("td", { class: "r" }, int(r.cur.orders)),
+    h("td", { class: "r hide-sm" }, int(r.cur.qty)),
+    h("td", { class: "r" }, int(r.cur.aov)),
+    h("td", { class: "r" }, r.prev ? deltaPill(r.cur.rev, r.prev.rev, r.partial ? "전월 동기간" : "전월") : h("span", { class: "muted" }, "—")))));
+}
+
+function renderChecks() {
+  const ul = $("#checks"), items = [];
+  if (S.ok.daily) {
+    const z = S.days.filter((d) => d.z);
+    for (const d of z) items.push(["warn",
+      `${longDay(d.day)} — 주문 ${int(d.orders)}건, 매출 ${yen(d.rev)} (객단가 ${yen(d.rev / d.orders)})`,
+      "0엔(증정·체험) 주문이 배송완료로 잡힌 날로 보입니다. 주문건수·객단가가 부풀려지고, 바코드 결산 수량에는 무상 출고분으로 포함됩니다."]);
+  }
+  if (S.ok.barcode) {
+    const miss = new Map();
+    for (const r of S.bc) if (!r.valid && (r.q || r.amt)) {
+      const k = r.name || "(상품명 없음)"; const o = miss.get(k) || { months: new Set(), q: 0 };
+      o.months.add(monthName(r.ym)); o.q += r.q; miss.set(k, o);
+    }
+    for (const [name, o] of miss) items.push(["warn", `바코드 미등록: ${name} (${[...o.months].join("·")}, ${qty(o.q)}개)`,
+      "[상품명매핑] 시트 I열(바코드 구성)을 채우면 다음 갱신부터 낱개 바코드로 나뉘어 결산됩니다."]);
+    if (S.ok.daily) {
+      for (const ym of [...new Set(S.bc.map((r) => r.ym))]) {
+        const tr = S.bc.filter((r) => r.ym === ym).reduce((a, r) => a + r.tr, 0);
+        const dv = S.days.filter((d) => d.day.startsWith(ym)).reduce((a, d) => a + d.rev, 0);
+        if (Math.abs(tr - dv) > 1) items.push(["crit", `${monthName(ym)} 바코드결산 매출 합계 ${yen(tr)} ≠ 일별매출 합계 ${yen(dv)}`,
+          "두 탭의 집계 시점이 다를 수 있습니다. 시트 메뉴에서 다시 집계해 보세요."]);
+      }
+    }
+  }
+  if (S.updated && (Date.now() - S.updated.getTime()) / 3600e3 > STALE_HOURS)
+    items.push(["crit", `시트가 ${Math.floor((Date.now() - S.updated.getTime()) / 3600e3)}시간째 갱신되지 않았습니다.`, "[실행기록] 탭에서 자동 집계가 멈췄는지 확인하세요."]);
+  if (!items.length) items.push(["ok", "확인이 필요한 항목이 없습니다.", null]);
+  ul.replaceChildren(...items.map(([lv, t, why]) => h("li", null, h("span", { class: "ic " + lv }),
+    h("div", null, h("div", null, t), why ? h("div", { class: "why" }, why) : null))));
+}
+
+/* =====================================================================
+   상품별 탭
+   ===================================================================== */
+function renderSku() {
+  const tb = $("#skuTable tbody"), tf = $("#skuTable tfoot");
+  if (!S.ok.sku) { tb.replaceChildren(h("tr", null, h("td", { colspan: 5, class: "muted" }, "SKU별판매 탭을 읽지 못했습니다."))); tf.replaceChildren(); return; }
+  const p = S.skuP;
+  const all = S.sku.map((r) => ({ name: r.name, code: r.code, q: r.q[p], r: r.r[p] }))
+    .sort((a, b) => b.r - a.r || b.q - a.q || a.name.localeCompare(b.name, "ko"));
+  const sold = all.filter((r) => r.q || r.r);
+  const rows = S.skuZero ? all : sold;
+  const tot = sold.reduce((a, r) => ({ q: a.q + r.q, r: a.r + r.r }), { q: 0, r: 0 });
+  const max = Math.max(1, ...rows.map((r) => r.r));
+  tb.replaceChildren(...(rows.length ? rows.map((r, i) => h("tr", null,
+    h("td", { class: "rank" }, r.q || r.r ? i + 1 : "–"),
+    h("td", null, h("div", { class: "pname" }, r.name), h("div", { class: "psub" }, "상품코드 " + r.code)),
+    h("td", { class: "r" }, qty(r.q)),
+    h("td", { class: "r" }, h("div", { class: "bc" }, h("span", { class: "bt" }, h("i", { style: `width:${(r.r / max) * 100}%` })), h("span", { class: "bv" }, int(r.r)))),
+    h("td", { class: "r" }, tot.r ? pct(r.r / tot.r) : "—")))
+    : [h("tr", null, h("td", { colspan: 5, class: "muted" }, "이 기간에 판매된 상품이 없습니다."))]));
+  tf.replaceChildren(h("tr", null, h("td"), h("td", null, `합계 · ${sold.length}개 상품`), h("td", { class: "r" }, qty(tot.q)), h("td", { class: "r" }, int(tot.r)), h("td", { class: "r" }, tot.r ? "100%" : "—")));
+  const k = S.asOf;
+  const label = { y: `어제(${k ? md(k) : ""})`, 7: k ? `최근 7일 ${fmtRange([addDays(k, -6), k])}` : "최근 7일",
+    30: k ? `최근 30일 ${fmtRange([addDays(k, -29), k])}` : "최근 30일", m: k ? `이번 달 ${fmtRange([k.slice(0, 8) + "01", k])}` : "이번 달",
+    all: S.first ? `전체 ${S.first.replace(/-/g, ".")}~` : "전체" }[p];
+  $("#skuCap").textContent = `${label} · 판매 없는 상품 ${all.length - sold.length}개` + (S.skuZero ? " 포함" : " 숨김");
+}
+
+/* =====================================================================
+   바코드 결산 탭
+   ===================================================================== */
+function bcMonths() { return [...new Set(S.bc.map((r) => r.ym))].sort(); }
+function bcGroup(rows) {
+  const by = new Map();
+  for (const r of rows) {
+    const o = by.get(r.k) || { k: r.k, bc: r.valid ? r.bc : "", name: r.name, q: 0, amt: 0 };
+    o.q += r.q; o.amt += r.amt; if (!o.name && r.name) o.name = r.name; by.set(r.k, o);
+  }
+  return [...by.values()].sort((a, b) => b.q - a.q || b.amt - a.amt);
+}
+function renderBarcode() {
+  const mbox = $("#bcMonths"), tb = $("#bcTable tbody"), tf = $("#bcTable tfoot");
+  if (!S.ok.barcode) {
+    mbox.replaceChildren(); $("#bcStats").replaceChildren(); tf.replaceChildren();
+    tb.replaceChildren(h("tr", null, h("td", { colspan: 5, class: "muted" }, "바코드결산 탭을 읽지 못했습니다.")));
+    renderHeat(); return;
+  }
+  const months = bcMonths();
+  if (!S.bcMonth || !months.includes(S.bcMonth)) S.bcMonth = months[months.length - 1];
+  const multiYear = new Set(months.map((m) => m.slice(0, 4))).size > 1;
+  const asM = S.asOf ? S.asOf.slice(0, 7) : null;
+  mbox.replaceChildren(...months.map((ym) => h("button", { type: "button", "aria-pressed": String(ym === S.bcMonth),
+    onclick: () => { S.bcMonth = ym; renderBarcode(); } }, monthName(ym, multiYear) + (ym === asM && S.asOf && +S.asOf.slice(8) < daysInMonth(+ym.slice(0, 4), +ym.slice(5)) ? " (진행 중)" : ""))));
+
+  const rows = S.bc.filter((r) => r.ym === S.bcMonth);
+  const groups = bcGroup(rows);
+  const tq = groups.reduce((a, g) => a + g.q, 0), ta = groups.reduce((a, g) => a + g.amt, 0);
+  const tr = rows.reduce((a, r) => a + r.tr, 0);
+  const days = new Set(rows.map((r) => r.day)).size;
+  $("#bcStats").replaceChildren(...[["매출 합계(Total R)", yen(tr)], ["낱개 출고 수량", qty(tq) + "개"], ["바코드 종류", int(groups.length) + "종"], ["판매일", int(days) + "일"]]
+    .map(([l, v]) => h("div", { class: "stat" }, h("div", { class: "sl" }, l), h("div", { class: "sv" }, v))));
+  const zd = S.days.filter((d) => d.z && d.day.startsWith(S.bcMonth)).map((d) => md(d.day));
+  const w = $("#bcWarn"); w.hidden = !zd.length;
+  w.replaceChildren(`⚠ ${zd.join(", ")}에 0엔 주문(무상 출고)이 많이 섞여 있어 이 달 수량에 포함돼 있습니다.`);
+  const max = Math.max(1, ...groups.map((g) => g.amt));
+  tb.replaceChildren(...groups.map((g) => h("tr", null,
+    h("td", null, g.bc ? h("span", { class: "bcode" }, g.bc) : h("span", { class: "chip warn" }, "미등록")),
+    h("td", null, h("div", { class: "pname" }, g.name || "—")),
+    h("td", { class: "r" }, qty(g.q)),
+    h("td", { class: "r" }, h("div", { class: "bc" }, h("span", { class: "bt" }, h("i", { style: `width:${(g.amt / max) * 100}%` })), h("span", { class: "bv" }, int(g.amt)))),
+    h("td", { class: "r hide-sm" }, ta ? pct(g.amt / ta) : "—"))));
+  tf.replaceChildren(h("tr", null, h("td", null, "합계"), h("td"), h("td", { class: "r" }, qty(tq)), h("td", { class: "r" }, int(ta)), h("td", { class: "r hide-sm" }, ta ? "100%" : "—")));
+  $("#copyRaw").textContent = `결산용 A~G열 복사 (${rows.length}행)`;
+  renderHeat();
+}
+function renderHeat() {
+  const t = $("#heatTable");
+  if (!S.ok.barcode) { t.tHead.replaceChildren(); t.tBodies[0].replaceChildren(); return; }
+  const months = bcMonths();
+  const multiYear = new Set(months.map((m) => m.slice(0, 4))).size > 1;
+  const zMonths = new Set(S.days.filter((d) => d.z).map((d) => d.day.slice(0, 7)));
+  const groups = bcGroup(S.bc);
+  const cell = new Map();
+  for (const r of S.bc) { const k = r.k + "|" + r.ym; cell.set(k, (cell.get(k) || 0) + r.q); }
+  const max = Math.max(1, ...cell.values());
+  t.tHead.replaceChildren(h("tr", null, h("th", null, "상품명"), h("th", { class: "hide-sm" }, "바코드"),
+    ...months.map((ym) => h("th", { class: "m" }, monthName(ym, multiYear) + (zMonths.has(ym) ? " ⚠" : "")))));
+  t.tBodies[0].replaceChildren(...groups.map((g) => h("tr", null,
+    h("td", { class: "nm" }, h("div", { class: "pname" }, g.name || "—")),
+    h("td", { class: "hide-sm" }, g.bc ? h("span", { class: "bcode" }, g.bc) : h("span", { class: "chip warn" }, "미등록")),
+    ...months.map((ym) => {
+      const v = cell.get(g.k + "|" + ym) || 0;
+      const p = v ? Math.round(12 + 70 * Math.sqrt(v / max)) : 0;
+      return h("td", { class: "h", style: v ? `background:color-mix(in srgb,var(--series-1) ${p}%,var(--surface));${p > 48 ? "color:var(--on-series);" : ""}` : "",
+        title: `${g.name} · ${monthName(ym)} ${qty(v)}개` }, v ? qty(v) : h("span", { class: "muted" }, "·"));
+    }))));
+}
+
+/* ---------- 복사 ---------- */
+async function copyText(text, n) {
+  const msg = $("#copyMsg"), area = $("#copyBox");
+  try {
+    await navigator.clipboard.writeText(text);
+    area.hidden = true; msg.textContent = `복사했습니다 (${n}행). 결산 시트에 붙여넣으세요.`;
+  } catch (e) {
+    area.value = text; area.hidden = false; area.focus(); area.select();
+    msg.textContent = "자동 복사가 막혀 있어요. 아래 선택된 내용을 Ctrl+C(⌘C)로 복사하세요.";
+  }
+  clearTimeout(copyText.t); copyText.t = setTimeout(() => { msg.textContent = ""; }, 6000);
+}
+$("#copyRaw").addEventListener("click", () => {
+  if (!S.ok.barcode) return;
+  const rows = S.bc.filter((r) => r.ym === S.bcMonth);
+  copyText(rows.map((r) => [r.y, r.m, r.d, r.co, r.valid ? r.bc : r.raw, r.q, r.trRaw === "" ? "" : r.tr].join("\t")).join("\n"), rows.length);
+});
+$("#copySum").addEventListener("click", () => {
+  if (!S.ok.barcode) return;
+  const g = bcGroup(S.bc.filter((r) => r.ym === S.bcMonth));
+  copyText(["바코드\t상품명\t수량\t금액(엔, 참고)", ...g.map((x) => [x.bc || "미등록", x.name, x.q, Math.round(x.amt)].join("\t"))].join("\n"), g.length);
+});
+
+/* =====================================================================
+   탭 · 컨트롤
+   ===================================================================== */
+const PANELS = ["summary", "products", "barcode"];
+function showPanel(id, push) {
+  if (!PANELS.includes(id)) id = "summary";
+  for (const p of PANELS) {
+    $("#" + p).hidden = p !== id;
+    $("#tab-" + p).setAttribute("aria-selected", String(p === id));
+    $("#tab-" + p).tabIndex = p === id ? 0 : -1;
+  }
+  if (push && location.hash !== "#" + id) history.replaceState(null, "", "#" + id);
+  if (id === "summary") drawDaily();
+}
+$$(".tabs [role=tab]").forEach((b, i, all) => {
+  b.addEventListener("click", () => showPanel(b.getAttribute("aria-controls"), true));
+  b.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    const nb = all[(i + (e.key === "ArrowRight" ? 1 : all.length - 1)) % all.length];
+    nb.focus(); nb.click();
+  });
+});
+window.addEventListener("hashchange", () => showPanel(location.hash.slice(1)));
+function bindSeg(sel, field, after) {
+  $$(sel + " button").forEach((b) => b.addEventListener("click", () => {
+    S[field] = b.dataset.v;
+    $$(sel + " button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    after();
+  }));
+}
+bindSeg("#kpiSeg", "kpi", renderKpis);
+bindSeg("#rangeSeg", "range", drawDaily);
+bindSeg("#skuSeg", "skuP", renderSku);
+$("#skuZero").addEventListener("change", (e) => { S.skuZero = e.target.checked; renderSku(); });
+
+/* ---------- 테마 ---------- */
+function applyTheme(t) {
+  if (t) document.documentElement.setAttribute("data-theme", t); else document.documentElement.removeAttribute("data-theme");
+}
+try { applyTheme(localStorage.getItem("qoo10-theme")); } catch (e) {}
+$("#themeBtn").addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme") ||
+    (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const next = cur === "dark" ? "light" : "dark";
+  applyTheme(next);
+  try { localStorage.setItem("qoo10-theme", next); } catch (e) {}
+});
+
+/* =====================================================================
+   불러오기
+   ===================================================================== */
+async function load() {
+  setDot("busy"); $("#reloadBtn").disabled = true;
+  const names = ["daily", "barcode", "sku", "head"];
+  const res = await Promise.allSettled(names.map(fetchSource));
+  const raw = {}; S.errors = {};
+  res.forEach((r, i) => { if (r.status === "fulfilled") raw[names[i]] = r.value; else if (names[i] !== "head") S.errors[names[i]] = r.reason; });
+  const step = (name, fn) => {
+    if (!raw[name]) { S.ok[name] = false; return; }
+    try { fn(); S.ok[name] = true; } catch (e) { S.ok[name] = false; S.errors[name] = e instanceof SheetError ? e : Object.assign(e, { tab: SOURCES[name][0] }); console.error(e); }
+  };
+  step("daily", () => buildDaily(raw.daily, raw.head));
+  step("barcode", () => buildBarcode(raw.barcode));
+  step("sku", () => buildSku(raw.sku));
+  const anyOk = S.ok.daily || S.ok.barcode || S.ok.sku;
+  setDot(Object.keys(S.errors).length ? "err" : "live");
+  if (!anyOk) $("#asof").textContent = "데이터를 불러오지 못했습니다";
+  showErrors(); renderHeader(); renderTakeaway(); renderKpis(); renderMonths(); renderChecks(); renderSku(); renderBarcode();
+  if (!S.ok.daily) { $("#dailyChart").replaceChildren(); }
+  drawDaily();
+  $("#reloadBtn").disabled = false;
+}
+$("#reloadBtn").addEventListener("click", load);
+new ResizeObserver(() => drawDaily()).observe($("#dailyChart"));
+setInterval(() => { if (document.visibilityState === "visible") load(); }, AUTO_RELOAD_MIN * 60e3);
+showPanel(location.hash.slice(1));
+renderHeader();
+load();
+</script>
+</body>
+</html>
